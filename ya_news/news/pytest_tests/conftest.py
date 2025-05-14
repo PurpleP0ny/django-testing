@@ -1,11 +1,12 @@
-import pytest
-from django.test.client import Client
 from datetime import datetime, timedelta
-from django.utils import timezone
+
+import pytest
 from django.conf import settings
-from django.urls import reverse
-from news.models import News, Comment
 from django.contrib.auth import get_user_model
+from django.test.client import Client
+from django.urls import reverse
+from django.utils import timezone
+from news.models import Comment, News
 
 User = get_user_model()
 

@@ -1,5 +1,6 @@
-import pytest
 from http import HTTPStatus
+
+import pytest
 from news.forms import WARNING
 from news.models import Comment
 
