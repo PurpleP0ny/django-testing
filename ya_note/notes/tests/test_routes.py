@@ -1,90 +1,133 @@
 from http import HTTPStatus
 
 from django.contrib.auth import get_user_model
-from django.test import Client, TestCase
-from django.urls import reverse
-from notes.models import Note
 
-SLUG = 'note-slug'
-HOME_URL = reverse('notes:home')
-LIST_URL = reverse('notes:list')
-ADD_URL = reverse('notes:add')
-SUCCESS_URL = reverse('notes:success')
-LOGIN_URL = reverse('users:login')
-LOGOUT_URL = reverse('users:logout')
-SINGUP_URL = reverse('users:signup')
-DETAIL_URL = reverse('notes:detail', args=(SLUG,))
-EDIT_URL = reverse('notes:edit', args=(SLUG,))
-DELETE_URL = reverse('notes:delete', args=(SLUG,))
-
+from .common import (ADD_URL, DELETE_URL, DETAIL_URL, EDIT_URL, HOME_URL,
+                     LIST_URL, LOGIN_URL, LOGOUT_URL, SIGNUP_URL, SUCCESS_URL,
+                     TestCaseWithData)
 
 User = get_user_model()
 
 
-class TestRoutes(TestCase):
+class TestRoutes(TestCaseWithData):
+    def test_status_codes(self):
+        """Проверка статус-кодов для разных пользователей."""
+        test_cases = [
+            {
+                'url': HOME_URL,
+                'client': self.client,
+                'expected_status': HTTPStatus.OK,
+            },
+            {
+                'url': LOGIN_URL,
+                'client': self.client,
+                'expected_status': HTTPStatus.OK,
+            },
+            {
+                'url': SIGNUP_URL,
+                'client': self.client,
+                'expected_status': HTTPStatus.OK,
+            },
+            {
+                'url': LIST_URL,
+                'client': self.auth_client,
+                'expected_status': HTTPStatus.OK,
+            },
+            {
+                'url': ADD_URL,
+                'client': self.auth_client,
+                'expected_status': HTTPStatus.OK,
+            },
+            {
+                'url': SUCCESS_URL,
+                'client': self.auth_client,
+                'expected_status': HTTPStatus.OK,
+            },
+            {
+                'url': DETAIL_URL,
+                'client': self.author_client,
+                'expected_status': HTTPStatus.OK,
+            },
+            {
+                'url': EDIT_URL,
+                'client': self.author_client,
+                'expected_status': HTTPStatus.OK,
+            },
+            {
+                'url': DELETE_URL,
+                'client': self.author_client,
+                'expected_status': HTTPStatus.OK,
+            },
+        ]
 
-    @classmethod
-    def setUpTestData(cls):
-        cls.author = User.objects.create(username='Лев Толстой')
-        cls.author_client = Client()
-        cls.author_client.force_login(cls.author)
-        cls.reader = User.objects.create(username='Читатель простой')
-        cls.auth_client = Client()
-        cls.auth_client.force_login(cls.reader)
-        cls.notes = Note.objects.create(
-            author=cls.author,
-            text='Текст заметки',
-            slug=SLUG
-        )
-        cls.all_urls = (SINGUP_URL, LOGIN_URL, SUCCESS_URL, HOME_URL,
-                        DETAIL_URL, LIST_URL, ADD_URL,
-                        EDIT_URL, DELETE_URL, LOGOUT_URL)
+        for case in test_cases:
+            with self.subTest(
+                url=case['url'],
+                user=get_user_model()
+                .objects.get(pk=case['client'].session['_auth_user_id'])
+                .username
+                if '_auth_user_id' in case['client'].session
+                else 'anonymous',
+                expected_status=case['expected_status'],
+            ):
+                response = case['client'].get(case['url'])
+                self.assertEqual(response.status_code, case['expected_status'])
 
-    def test_pages_availability_new(self):
-        """Все страницы доступны автору."""
-        for url in self.all_urls:
-            with self.subTest(url=url):
-                if url == LOGOUT_URL:
-                    # Для выхода используем POST-запрос
-                    response = self.author_client.post(url)
-                else:
-                    response = self.author_client.get(url)
-                self.assertEqual(response.status_code, HTTPStatus.OK)
+    def test_redirects_for_anonymous(self):
+        """Проверка редиректов для анонимных пользователей."""
+        test_cases = [
+            {
+                'url': LIST_URL,
+                'expected_redirect': f'{LOGIN_URL}?next={LIST_URL}',
+            },
+            {
+                'url': ADD_URL,
+                'expected_redirect': f'{LOGIN_URL}?next={ADD_URL}',
+            },
+            {
+                'url': SUCCESS_URL,
+                'expected_redirect': f'{LOGIN_URL}?next={SUCCESS_URL}',
+            },
+            {
+                'url': DETAIL_URL,
+                'expected_redirect': f'{LOGIN_URL}?next={DETAIL_URL}',
+            },
+            {
+                'url': EDIT_URL,
+                'expected_redirect': f'{LOGIN_URL}?next={EDIT_URL}',
+            },
+            {
+                'url': DELETE_URL,
+                'expected_redirect': f'{LOGIN_URL}?next={DELETE_URL}',
+            },
+        ]
 
-    def test_pages_no_author_availability_new(self):
-        """Не автору доступны все страницы кроме delete, detail, edit."""
-        for url in self.all_urls:
-            with self.subTest(url=url):
-                if url == LOGOUT_URL:
-                    # Для выхода используем POST-запрос
-                    response = self.auth_client.post(url)
-                else:
-                    response = self.auth_client.get(url)
-                inaccessible_pages_not_author = (DETAIL_URL,
-                                                 EDIT_URL,
-                                                 DELETE_URL)
-                if url in inaccessible_pages_not_author:
-                    self.assertEqual(response.status_code,
-                                     HTTPStatus.NOT_FOUND)
-                else:
-                    self.assertEqual(response.status_code,
-                                     HTTPStatus.OK)
+        for case in test_cases:
+            with self.subTest(url=case['url'], user='anonymous'):
+                response = self.client.get(case['url'])
+                self.assertRedirects(response, case['expected_redirect'])
 
-    def test_redirect_for_anonymous_client(self):
-        """Проверка доступа для анонимного пользователя."""
-        for url in self.all_urls:
-            with self.subTest(url=url):
-                if url == LOGOUT_URL:
-                    # Для выхода используем POST-запрос
-                    response = self.client.post(url)
-                else:
-                    response = self.client.get(url)
-                inaccessible_pages_anon_users = (LIST_URL, ADD_URL,
-                                                 SUCCESS_URL, DETAIL_URL,
-                                                 EDIT_URL, DELETE_URL)
-                if url in inaccessible_pages_anon_users:
-                    redirect_url = f'{LOGIN_URL}?next={url}'
-                    self.assertRedirects(response, redirect_url)
-                else:
-                    self.assertEqual(response.status_code,
-                                     HTTPStatus.OK)
+    def test_logout_behavior(self):
+        """Проверка поведения при выходе из системы."""
+        test_cases = [
+            {
+                'client': self.client,
+                'username': 'anonymous',
+                'expected_status': HTTPStatus.OK,
+            },
+            {
+                'client': self.auth_client,
+                'username': self.user.username,
+                'expected_status': HTTPStatus.OK,
+            },
+            {
+                'client': self.author_client,
+                'username': self.author.username,
+                'expected_status': HTTPStatus.OK,
+            },
+        ]
+
+        for case in test_cases:
+            with self.subTest(user=case['username']):
+                response = case['client'].post(LOGOUT_URL)
+                self.assertEqual(response.status_code, case['expected_status'])

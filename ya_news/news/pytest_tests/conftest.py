@@ -11,7 +11,12 @@ from news.models import Comment, News
 User = get_user_model()
 
 
-# Фикстуры для клиентов
+@pytest.fixture(autouse=True)
+def enable_db_access_for_all_tests(db):
+    """Фикстура для постоянного доступа к БД"""
+    pass
+
+
 @pytest.fixture
 def anonymous_client():
     """Фикстура для неавторизованного клиента."""
@@ -61,19 +66,16 @@ def news():
 def bulk_news():
     """Фикстура для создания нескольких новостей."""
     today = datetime.today()
-    all_news = [
+    News.objects.bulk_create(
         News(
             title=f'Новость {index}',
             text='Просто текст.',
             date=today - timedelta(days=index)
         )
         for index in range(settings.NEWS_COUNT_ON_HOME_PAGE + 1)
-    ]
-    News.objects.bulk_create(all_news)
-    return all_news
+    )
 
 
-# Фикстуры для комментариев
 @pytest.fixture
 def comment(author, news):
     """Фикстура для создания комментария."""
@@ -98,10 +100,8 @@ def bulk_comments(author, news):
         comment.created = now + timedelta(days=index)
         comment.save()
         comments.append(comment)
-    return comments
 
 
-# Фикстуры для URL
 @pytest.fixture
 def home_url():
     """Фикстура для URL главной страницы."""
@@ -144,15 +144,7 @@ def logout_url():
     return reverse('users:logout')
 
 
-# Фикстуры для данных форм
 @pytest.fixture
 def comment_form_data():
     """Фикстура для данных формы комментария."""
     return {'text': 'Новый комментарий'}
-
-
-@pytest.fixture
-def bad_comment_form_data():
-    """Фикстура для данных формы с запрещенными словами."""
-    from news.forms import BAD_WORDS
-    return {'text': f'Какой-то текст, {BAD_WORDS[0]}, еще текст'}
