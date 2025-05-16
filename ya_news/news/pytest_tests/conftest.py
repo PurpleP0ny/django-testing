@@ -6,6 +6,7 @@ from django.contrib.auth import get_user_model
 from django.test.client import Client
 from django.urls import reverse
 from django.utils import timezone
+
 from news.models import Comment, News
 
 User = get_user_model()
@@ -51,7 +52,6 @@ def reader_client(reader):
     return client
 
 
-# Фикстуры для новостей
 @pytest.fixture
 def news():
     """Фикстура для создания новости."""
@@ -142,9 +142,3 @@ def signup_url():
 def logout_url():
     """Фикстура для URL страницы выхода."""
     return reverse('users:logout')
-
-
-@pytest.fixture
-def comment_form_data():
-    """Фикстура для данных формы комментария."""
-    return {'text': 'Новый комментарий'}

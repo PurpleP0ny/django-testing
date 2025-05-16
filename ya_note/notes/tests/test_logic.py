@@ -1,7 +1,8 @@
 from http import HTTPStatus
 
-from notes.models import Note
 from pytils.translit import slugify
+
+from notes.models import Note
 
 from .common import (ADD_URL, DELETE_URL, EDIT_URL, SUCCESS_URL,
                      TestCaseWithData)

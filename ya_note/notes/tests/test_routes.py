@@ -61,15 +61,8 @@ class TestRoutes(TestCaseWithData):
         ]
 
         for case in test_cases:
-            with self.subTest(
-                url=case['url'],
-                user=get_user_model()
-                .objects.get(pk=case['client'].session['_auth_user_id'])
-                .username
-                if '_auth_user_id' in case['client'].session
-                else 'anonymous',
-                expected_status=case['expected_status'],
-            ):
+            with self.subTest(url=case['url'],
+                              expected_status=case['expected_status']):
                 response = case['client'].get(case['url'])
                 self.assertEqual(response.status_code, case['expected_status'])
 
